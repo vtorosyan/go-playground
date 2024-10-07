@@ -3,21 +3,25 @@ package main
 import (
 	"database/sql"
 	"flag"
+	"github.com/alexedwards/scs/mysqlstore"
+	"github.com/alexedwards/scs/v2"
 	"github.com/go-playground/form/v4"
 	"html/template"
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 	"vtorosyan.learning/internal/models"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
 type application struct {
-	logger        *slog.Logger
-	snippets      *models.SnippetModel
-	templateCache map[string]*template.Template
-	formDecoder   *form.Decoder
+	logger         *slog.Logger
+	snippets       *models.SnippetModel
+	templateCache  map[string]*template.Template
+	formDecoder    *form.Decoder
+	sessionManager *scs.SessionManager
 }
 
 func main() {
@@ -43,6 +47,10 @@ func main() {
 		}
 	}()
 
+	sessionManager := scs.New()
+	sessionManager.Store = mysqlstore.New(db)
+	sessionManager.Lifetime = 12 * time.Hour
+
 	templateCache, err := newTemplateCache()
 	if err != nil {
 		slog.Error(err.Error())
@@ -52,14 +60,24 @@ func main() {
 	formDecoder := form.NewDecoder()
 	snippets := models.SnippetModel{DB: db}
 	app := &application{
-		logger:        logger,
-		snippets:      &snippets,
-		templateCache: templateCache,
-		formDecoder:   formDecoder,
+		logger:         logger,
+		snippets:       &snippets,
+		templateCache:  templateCache,
+		formDecoder:    formDecoder,
+		sessionManager: sessionManager,
 	}
 
-	logger.Info("Starting the server.", "address", *addr)
-	err = http.ListenAndServe(*addr, app.routes())
+	// Note to self: even if you don't use the address of the struct,
+	//Go will automatically get the address when calling ListenAndServe, as the method is a pointer receiver
+	server := &http.Server{
+		Addr:     *addr,
+		Handler:  app.routes(),
+		ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError),
+	}
+
+	logger.Info("Starting the server.", "address", server.Addr)
+	err = server.ListenAndServe()
+
 	logger.Error(err.Error())
 	os.Exit(1)
 }

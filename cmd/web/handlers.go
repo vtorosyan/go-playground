@@ -23,6 +23,14 @@ type snippetCreateForm struct {
 	validator.Validator `form:"-"`
 }
 
+type userSignupForm struct {
+	Name                string `form:"name""`
+	Email               string `form:"email"`
+	Password            string `form:"password"`
+	validator.Validator `form:"-"`
+}
+
+// Main app (snippets)
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
 	snippets, err := app.snippets.Latest()
 	if err != nil {
@@ -102,4 +110,50 @@ func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request
 	app.sessionManager.Put(r.Context(), "flash", "Snippet successfully created!")
 
 	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", id), http.StatusSeeOther)
+}
+
+// Users
+
+func (app *application) userSignup(w http.ResponseWriter, r *http.Request) {
+	data := app.newTemplateData(r)
+	data.Form = userSignupForm{}
+
+	app.render(w, r, http.StatusOK, "signup.tmpl.html", data)
+}
+
+func (app *application) userSignupPost(w http.ResponseWriter, r *http.Request) {
+	var form userSignupForm
+
+	err := app.decodePostForm(r, &form)
+	if err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+	form.CheckField(validator.NotBlank(form.Name), "name", "This field cannot be blank")
+	form.CheckField(validator.NotBlank(form.Email), "email", "This field cannot be blank")
+	form.CheckField(validator.Matches(form.Email, validator.EmailRegex), "email", "This field must be a valid email")
+	form.CheckField(validator.NotBlank(form.Password), "password", "This field cannot be blank")
+	form.CheckField(validator.MinChars(form.Password, 8), "password", "This field must have minimum 8 chars")
+
+	if !form.Valid() {
+		data := app.newTemplateData(r)
+		data.Form = form
+
+		app.render(w, r, http.StatusUnprocessableEntity, "signup.tmpl.html", data)
+		return
+	}
+
+	fmt.Fprintln(w, "Create a user")
+}
+
+func (app *application) userLogin(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "Display a form for signing up a new user...")
+}
+
+func (app *application) userLoginPost(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "Display a form for signing up a new user...")
+}
+
+func (app *application) userLogoutPost(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "Display a form for signing up a new user...")
 }

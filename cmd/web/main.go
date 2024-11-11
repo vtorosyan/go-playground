@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"flag"
 	"github.com/alexedwards/scs/mysqlstore"
@@ -19,6 +20,7 @@ import (
 type application struct {
 	logger         *slog.Logger
 	snippets       *models.SnippetModel
+	users          *models.UserModel
 	templateCache  map[string]*template.Template
 	formDecoder    *form.Decoder
 	sessionManager *scs.SessionManager
@@ -59,24 +61,34 @@ func main() {
 
 	formDecoder := form.NewDecoder()
 	snippets := models.SnippetModel{DB: db}
+	users := models.UserModel{DB: db}
 	app := &application{
 		logger:         logger,
 		snippets:       &snippets,
+		users:          &users,
 		templateCache:  templateCache,
 		formDecoder:    formDecoder,
 		sessionManager: sessionManager,
 	}
 
+	tlsCfg := &tls.Config{
+		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},
+	}
 	// Note to self: even if you don't use the address of the struct,
 	//Go will automatically get the address when calling ListenAndServe, as the method is a pointer receiver
 	server := &http.Server{
-		Addr:     *addr,
-		Handler:  app.routes(),
-		ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError),
+		Addr:      *addr,
+		Handler:   app.routes(),
+		ErrorLog:  slog.NewLogLogger(logger.Handler(), slog.LevelError),
+		TLSConfig: tlsCfg,
+
+		IdleTimeout:  time.Minute,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
 	}
 
 	logger.Info("Starting the server.", "address", server.Addr)
-	err = server.ListenAndServe()
+	err = server.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem")
 
 	logger.Error(err.Error())
 	os.Exit(1)

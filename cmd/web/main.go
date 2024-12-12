@@ -50,6 +50,7 @@ func main() {
 	}()
 
 	sessionManager := scs.New()
+	sessionManager.Cookie.SameSite = http.SameSiteLaxMode
 	sessionManager.Store = mysqlstore.New(db)
 	sessionManager.Lifetime = 12 * time.Hour
 

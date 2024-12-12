@@ -8,7 +8,8 @@ import (
 )
 
 type Validator struct {
-	FieldErrors map[string]string
+	NonFieldErrors []string
+	FieldErrors    map[string]string
 }
 
 var EmailRegex = regexp.MustCompile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")
@@ -25,6 +26,10 @@ func (v *Validator) AddFieldError(key string, msg string) {
 	if _, exists := v.FieldErrors[key]; !exists {
 		v.FieldErrors[key] = msg
 	}
+}
+
+func (v *Validator) AddNonFieldError(message string) {
+	v.NonFieldErrors = append(v.NonFieldErrors, message)
 }
 
 func (v *Validator) CheckField(ok bool, key string, msg string) {

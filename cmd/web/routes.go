@@ -3,16 +3,16 @@ package main
 import (
 	"github.com/justinas/alice"
 	"net/http"
+	"vtorosyan.learning/ui"
 )
 
 func (app *application) routes() http.Handler {
 	mux := http.NewServeMux()
 
 	// Static files
-	fs := http.FileServer(http.Dir("./ui/static/"))
-	mux.Handle("GET /static/", http.StripPrefix("/static", fs))
+	mux.Handle("GET /static/", http.FileServerFS(ui.Files))
 
-	dynamic := alice.New(app.sessionManager.LoadAndSave, noSurf)
+	dynamic := alice.New(app.sessionManager.LoadAndSave, noSurf, app.authenticate)
 
 	// Unprotected handlers
 	mux.Handle("GET /{$}", dynamic.ThenFunc(app.home))
